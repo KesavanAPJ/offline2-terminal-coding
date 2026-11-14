@@ -1,0 +1,64 @@
+# Development stack with hot reload:
+#   docker compose -f docker-compose.dev.yml up --build
+# Backend: http://localhost:8000  Frontend (Vite): http://localhost:5173  Postgres: localhost:5432
+name: invoiceflow-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-invoiceflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-invoiceflow}
+      POSTGRES_DB: ${POSTGRES_DB:-invoiceflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    image: invoiceflow-backend:dev
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-invoiceflow}:${POSTGRES_PASSWORD:-invoiceflow}@db:5432/${POSTGRES_DB:-invoiceflow}
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-secret-key-change-me}
+      UPLOAD_DIR: /app/uploads
+    # Run the entrypoint via sh so a bind-mounted script works without an exec bit
+    entrypoint: ["sh", "/app/entrypoint.sh"]
+    command: ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ./backend:/app
+      - uploads_dev:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      CHOKIDAR_USEPOLLING: "true"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_dev_data:
+  uploads_dev:

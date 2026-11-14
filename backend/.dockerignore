@@ -1,0 +1,33 @@
+# VCS / editors
+.git
+.gitignore
+.vscode
+.idea
+*.swp
+
+# Python artefacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+
+# Local data / secrets
+.env
+.env.*
+uploads/
+*.db
+*.sqlite3
+
+# Not needed in the runtime image
+tests/
+requirements-dev.txt
+Dockerfile
+.dockerignore

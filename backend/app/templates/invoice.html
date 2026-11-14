@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice {{ invoice.invoice_number }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 20mm 16mm;
+      @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+        font-size: 8pt;
+        color: #94a3b8;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.45;
+      color: #1e293b;
+      margin: 0;
+    }
+    .muted { color: #64748b; }
+    .pre { white-space: pre-line; }
+    .header { display: table; width: 100%; margin-bottom: 14mm; }
+    .header > div { display: table-cell; vertical-align: top; }
+    .header .right { text-align: right; }
+    .logo { max-height: 22mm; max-width: 60mm; margin-bottom: 4mm; }
+    .business-name { font-size: 13pt; font-weight: bold; margin: 0 0 1mm 0; }
+    .title { font-size: 24pt; font-weight: bold; letter-spacing: 2px; color: #4f46e5; margin: 0; }
+    .number { font-size: 11pt; margin: 1mm 0 3mm 0; }
+    .status {
+      display: inline-block;
+      padding: 1mm 3mm;
+      border-radius: 3mm;
+      font-size: 8pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .status-sent { background: #dbeafe; color: #1d4ed8; }
+    .status-paid { background: #dcfce7; color: #15803d; }
+    .status-overdue { background: #fee2e2; color: #b91c1c; }
+    .meta { display: table; width: 100%; margin-bottom: 10mm; }
+    .meta > div { display: table-cell; vertical-align: top; width: 50%; }
+    .label {
+      font-size: 7.5pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin-bottom: 1.5mm;
+    }
+    .dates td { padding: 0.5mm 0 0.5mm 6mm; }
+    .dates td.k { color: #64748b; }
+    .dates { margin-left: auto; border-collapse: collapse; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+    table.items th {
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      text-align: left;
+      border-bottom: 1.5px solid #cbd5e1;
+      padding: 2mm 2mm;
+    }
+    table.items td { padding: 2.5mm 2mm; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    table.items tr { page-break-inside: avoid; }
+    .num { text-align: right !important; white-space: nowrap; }
+    th.desc { width: 52%; }
+    .totals { width: 80mm; margin-left: auto; border-collapse: collapse; page-break-inside: avoid; }
+    .totals td { padding: 1.2mm 2mm; }
+    .totals tr.grand td {
+      border-top: 1.5px solid #1e293b;
+      font-size: 12pt;
+      font-weight: bold;
+      padding-top: 2.5mm;
+    }
+    .section { margin-top: 10mm; page-break-inside: avoid; }
+    .paid-note { color: #15803d; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="left">
+      {% if logo_src %}
+      <img class="logo" src="{{ logo_src }}" alt="Logo">
+      {% endif %}
+      {% if business and business.business_name %}
+      <p class="business-name">{{ business.business_name }}</p>
+      {% endif %}
+      {% if business %}
+      {% if business.address %}<div class="pre muted">{{ business.address }}</div>{% endif %}
+      {% if business.email %}<div class="muted">{{ business.email }}</div>{% endif %}
+      {% if business.phone %}<div class="muted">{{ business.phone }}</div>{% endif %}
+      {% if business.tax_id %}<div class="muted">Tax ID: {{ business.tax_id }}</div>{% endif %}
+      {% endif %}
+    </div>
+    <div class="right">
+      <p class="title">INVOICE</p>
+      <p class="number">{{ invoice.invoice_number }}</p>
+      <span class="status status-{{ status }}">{{ status }}</span>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div>
+      <div class="label">Bill to</div>
+      <div><strong>{{ client.name }}</strong></div>
+      {% if client.company %}<div>{{ client.company }}</div>{% endif %}
+      {% if client.address %}<div class="pre muted">{{ client.address }}</div>{% endif %}
+      {% if client.email %}<div class="muted">{{ client.email }}</div>{% endif %}
+      {% if client.tax_id %}<div class="muted">Tax ID: {{ client.tax_id }}</div>{% endif %}
+    </div>
+    <div>
+      <table class="dates">
+        <tr><td class="k">Issue date</td><td class="num">{{ invoice.issue_date | date }}</td></tr>
+        <tr><td class="k">Due date</td><td class="num">{{ invoice.due_date | date }}</td></tr>
+        <tr><td class="k">Currency</td><td class="num">{{ currency }}</td></tr>
+        {% if invoice.paid_at %}
+        <tr><td class="k">Paid on</td><td class="num">{{ invoice.paid_at | date }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="desc">Description</th>
+        <th class="num">Qty</th>
+        <th class="num">Unit price</th>
+        <th class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="pre">{{ item.description }}</td>
+        <td class="num">{{ item.quantity | qty }}</td>
+        <td class="num">{{ item.unit_price | money(currency) }}</td>
+        <td class="num">{{ item.amount | money(currency) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td class="muted">Subtotal</td><td class="num">{{ invoice.subtotal | money(currency) }}</td></tr>
+    {% if invoice.discount and invoice.discount > 0 %}
+    <tr><td class="muted">Discount</td><td class="num">-{{ invoice.discount | money(currency) }}</td></tr>
+    {% endif %}
+    {% if invoice.tax_rate and invoice.tax_rate > 0 %}
+    <tr><td class="muted">Tax ({{ invoice.tax_rate | rate }})</td><td class="num">{{ invoice.tax_amount | money(currency) }}</td></tr>
+    {% endif %}
+    <tr class="grand"><td>Total</td><td class="num">{{ invoice.total | money(currency) }}</td></tr>
+  </table>
+
+  {% if status == "paid" %}
+  <div class="section paid-note">Paid in full{% if invoice.paid_at %} on {{ invoice.paid_at | date }}{% endif %}. Thank you!</div>
+  {% endif %}
+
+  {% if invoice.notes %}
+  <div class="section">
+    <div class="label">Notes</div>
+    <div class="pre">{{ invoice.notes }}</div>
+  </div>
+  {% endif %}
+
+  {% if business and business.payment_instructions %}
+  <div class="section">
+    <div class="label">Payment instructions</div>
+    <div class="pre">{{ business.payment_instructions }}</div>
+  </div>
+  {% endif %}
+</body>
+</html>
