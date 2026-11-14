@@ -1,0 +1,34 @@
+# Production override for a host that already runs Traefik (Docker provider,
+# `websecure` entrypoint, `letsencrypt` cert resolver).
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.traefik.yml up -d --build
+#
+# Requires in .env: APP_DOMAIN (e.g. invoiceflow.example.com) plus the usual
+# POSTGRES_*, SECRET_KEY, PUBLIC_APP_URL, CORS_ORIGINS, VITE_API_URL.
+#
+# No host ports are published: Traefik is the only way in. This matters because
+# the backend trusts X-Forwarded-For (uvicorn --forwarded-allow-ips '*') for
+# rate limiting, which is only safe when nothing else can reach it directly.
+
+services:
+  backend:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.invoiceflow-api.rule=Host(`${APP_DOMAIN:?APP_DOMAIN must be set}`) && (PathPrefix(`/api`) || Path(`/health`))
+      - traefik.http.routers.invoiceflow-api.entrypoints=websecure
+      - traefik.http.routers.invoiceflow-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.invoiceflow-api.priority=100
+      - traefik.http.routers.invoiceflow-api.service=invoiceflow-api
+      - traefik.http.services.invoiceflow-api.loadbalancer.server.port=8000
+
+  frontend:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.invoiceflow-web.rule=Host(`${APP_DOMAIN:?APP_DOMAIN must be set}`)
+      - traefik.http.routers.invoiceflow-web.entrypoints=websecure
+      - traefik.http.routers.invoiceflow-web.tls.certresolver=letsencrypt
+      - traefik.http.routers.invoiceflow-web.priority=10
+      - traefik.http.routers.invoiceflow-web.service=invoiceflow-web
+      - traefik.http.services.invoiceflow-web.loadbalancer.server.port=80
